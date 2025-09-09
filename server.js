@@ -3,15 +3,16 @@ import bodyParser from "body-parser";
 import nodemailer from "nodemailer";
 import PDFDocument from "pdfkit";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 const app = express();
-
-// Middleware
 app.use(bodyParser.json({ limit: "5mb" }));
-app.use(express.static("public")); // serve your HTML/JS/CSS from /public
 
-// Nodemailer transporter
+// Enable CORS for all origins (or replace "*" with your Shopify domain)
+app.use(cors());
+
+// Create transporter
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: 587,
@@ -22,7 +23,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Generate PDF
+// Generate PDF from entries
 function generatePDF(entries, closedDays) {
   return new Promise((resolve, reject) => {
     try {
@@ -35,7 +36,7 @@ function generatePDF(entries, closedDays) {
       doc.moveDown();
 
       doc.fontSize(14).text("Entries:", { underline: true });
-      entries.forEach((e) => {
+      entries.forEach(e => {
         doc.fontSize(12).text(
           `${e.date} ${e.time} | ${e.description} | ${e.amount.toFixed(2)}`
         );
@@ -43,12 +44,10 @@ function generatePDF(entries, closedDays) {
 
       doc.moveDown();
       doc.fontSize(14).text("Closed Days:", { underline: true });
-      Object.keys(closedDays).forEach((day) => {
+      Object.keys(closedDays).forEach(day => {
         doc.fontSize(12).text(day);
-        closedDays[day].forEach((e) => {
-          doc.text(
-            `   ${e.date} ${e.time} | ${e.description} | ${e.amount.toFixed(2)}`
-          );
+        closedDays[day].forEach(e => {
+          doc.text(`   ${e.date} ${e.time} | ${e.description} | ${e.amount.toFixed(2)}`);
         });
       });
 
@@ -59,7 +58,7 @@ function generatePDF(entries, closedDays) {
   });
 }
 
-// API route to send PDF via email
+// Route for sending PDF via email
 app.post("/share", async (req, res) => {
   try {
     const { entries, closedDays } = req.body;
@@ -81,11 +80,10 @@ app.post("/share", async (req, res) => {
 
     res.json({ success: true, message: "Report sent successfully!" });
   } catch (err) {
-    console.error("Error sending email:", err);
+    console.error(err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
